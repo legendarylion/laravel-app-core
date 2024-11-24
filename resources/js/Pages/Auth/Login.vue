@@ -1,17 +1,8 @@
+<!-- resources/js/Pages/Auth/Login.vue -->
 <script setup>
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import AuthenticationCard from '@/Components/AuthenticationCard.vue';
-import AuthenticationCardLogo from '@/Components/AuthenticationCardLogo.vue';
-import Checkbox from '@/Components/Checkbox.vue';
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
-
-defineProps({
-    canResetPassword: Boolean,
-    status: String,
-});
+import { ref } from 'vue';
+import { useForm } from '@inertiajs/vue3';
+import { route } from 'ziggy-js';
 
 const form = useForm({
     email: '',
@@ -19,72 +10,88 @@ const form = useForm({
     remember: false,
 });
 
+const showPassword = ref(false);
+
 const submit = () => {
-    form.transform(data => ({
-        ...data,
-        remember: form.remember ? 'on' : '',
-    })).post(route('login'), {
+    form.post(route('login'), {
         onFinish: () => form.reset('password'),
     });
 };
 </script>
 
 <template>
-    <Head title="Log in" />
+    <v-app>
+        <v-main>
+            <v-container fluid class="fill-height">
+                <v-row justify="center" align="center">
+                    <v-col cols="12" sm="8" md="4">
+                        <v-card class="elevation-12">
+                            <v-toolbar color="primary" flat>
+                                <v-toolbar-title>Login</v-toolbar-title>
+                            </v-toolbar>
 
-    <AuthenticationCard>
-        <template #logo>
-            <AuthenticationCardLogo />
-        </template>
+                            <v-card-text class="pa-6">
+                                <v-form @submit.prevent="submit">
+                                    <v-text-field v-model="form.email" :error-messages="form.errors.email" label="Email"
+                                        name="email" prepend-icon="mdi-email" type="email" required variant="outlined"
+                                        autocomplete="username" class="mt-4"
+                                        :append-inner-icon="null" />
 
-        <div v-if="status" class="mb-4 font-medium text-sm text-green-600">
-            {{ status }}
-        </div>
+                                    <v-text-field v-model="form.password" :error-messages="form.errors.password"
+                                        :type="showPassword ? 'text' : 'password'" label="Password" name="password"
+                                        prepend-icon="mdi-lock" required variant="outlined"
+                                        autocomplete="current-password"
+                                        :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
+                                        @click:append-inner="showPassword = !showPassword" />
 
-        <form @submit.prevent="submit">
-            <div>
-                <InputLabel for="email" value="Email" />
-                <TextInput
-                    id="email"
-                    v-model="form.email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    required
-                    autofocus
-                    autocomplete="username"
-                />
-                <InputError class="mt-2" :message="form.errors.email" />
-            </div>
+                                    <v-checkbox v-model="form.remember" label="Remember me" color="primary"
+                                        class="mt-2" />
 
-            <div class="mt-4">
-                <InputLabel for="password" value="Password" />
-                <TextInput
-                    id="password"
-                    v-model="form.password"
-                    type="password"
-                    class="mt-1 block w-full"
-                    required
-                    autocomplete="current-password"
-                />
-                <InputError class="mt-2" :message="form.errors.password" />
-            </div>
+                                    <div class="d-flex flex-column gap-4 mt-2">
+                                        <v-btn type="submit" color="primary" block :loading="form.processing"
+                                            :disabled="form.processing" elevation="2">
+                                            Log in
+                                        </v-btn>
 
-            <div class="block mt-4">
-                <label class="flex items-center">
-                    <Checkbox v-model:checked="form.remember" name="remember" />
-                    <span class="ms-2 text-sm text-gray-600">Remember me</span>
-                </label>
-            </div>
+                                        <div class="text-center">
+                                            <v-btn :href="route('password.request')" variant="text" color="primary">
+                                                Forgot your password?
+                                            </v-btn>
+                                        </div>
 
-            <div class="flex items-center justify-end mt-4">
-                <Link v-if="canResetPassword" :href="route('password.request')" class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    Forgot your password?
-                </Link>
+                                        <v-divider class="my-4">
+                                            <span class="text-medium-emphasis">Or continue with</span>
+                                        </v-divider>
 
-                <PrimaryButton class="ms-4" :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
-                    Log in
-                </PrimaryButton>
-            </div>
-        </form>
-    </AuthenticationCard>
+                                        <v-row dense>
+                                            <v-col cols="6">
+                                                <v-btn :href="route('socialite.redirect', 'google')" color="error" block
+                                                    prepend-icon="mdi-google" elevation="2">
+                                                    Google
+                                                </v-btn>
+                                            </v-col>
+
+                                            <v-col cols="6">
+                                                <v-btn :href="route('socialite.redirect', 'facebook')" color="#1877F2"
+                                                    block prepend-icon="mdi-facebook" elevation="2">
+                                                    Facebook
+                                                </v-btn>
+                                            </v-col>
+                                        </v-row>
+                                    </div>
+                                </v-form>
+                            </v-card-text>
+                        </v-card>
+                    </v-col>
+                </v-row>
+            </v-container>
+        </v-main>
+    </v-app>
 </template>
+
+<style scoped>
+.v-card-text :deep(.v-field__append-inner) {
+    padding-inline-start: 12px;
+}
+</style>
+

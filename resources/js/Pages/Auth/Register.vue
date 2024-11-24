@@ -1,12 +1,8 @@
+<!-- resources/js/Pages/Auth/Register.vue -->
 <script setup>
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import AuthenticationCard from '@/Components/AuthenticationCard.vue';
-import AuthenticationCardLogo from '@/Components/AuthenticationCardLogo.vue';
-import Checkbox from '@/Components/Checkbox.vue';
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
+import { ref } from 'vue';
+import { useForm } from '@inertiajs/vue3';
+import { route } from 'ziggy-js';
 
 const form = useForm({
     name: '',
@@ -16,97 +12,130 @@ const form = useForm({
     terms: false,
 });
 
+const showPassword = ref(false);
+const showPasswordConfirmation = ref(false);
+
 const submit = () => {
     form.post(route('register'), {
-        onFinish: () => form.reset('password', 'password_confirmation'),
+        onFinish: () => {
+            form.reset('password', 'password_confirmation');
+        },
     });
 };
 </script>
 
 <template>
-    <Head title="Register" />
+    <v-app>
+        <v-main>
+            <v-container fluid class="fill-height">
+                <v-row justify="center" align="center">
+                    <v-col cols="12" sm="8" md="6" lg="4">
+                        <v-card class="elevation-12">
+                            <v-toolbar color="primary" flat>
+                                <v-toolbar-title>Register</v-toolbar-title>
+                            </v-toolbar>
 
-    <AuthenticationCard>
-        <template #logo>
-            <AuthenticationCardLogo />
-        </template>
+                            <v-card-text class="pa-6">
+                                <v-form @submit.prevent="submit">
+                                    <!-- Name -->
+                                    <v-text-field v-model="form.name" :error-messages="form.errors.name" label="Name"
+                                        name="name" type="text" required variant="outlined" autocomplete="name"
+                                        prepend-icon="mdi-account" class="mt-4" persistent-placeholder
+                                        :append-inner-icon="null" />
 
-        <form @submit.prevent="submit">
-            <div>
-                <InputLabel for="name" value="Name" />
-                <TextInput
-                    id="name"
-                    v-model="form.name"
-                    type="text"
-                    class="mt-1 block w-full"
-                    required
-                    autofocus
-                    autocomplete="name"
-                />
-                <InputError class="mt-2" :message="form.errors.name" />
-            </div>
+                                    <!-- Email -->
+                                    <v-text-field v-model="form.email" :error-messages="form.errors.email" label="Email"
+                                        name="email" type="email" required variant="outlined" autocomplete="username"
+                                        prepend-icon="mdi-email" persistent-placeholder :append-inner-icon="null" />
 
-            <div class="mt-4">
-                <InputLabel for="email" value="Email" />
-                <TextInput
-                    id="email"
-                    v-model="form.email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    required
-                    autocomplete="username"
-                />
-                <InputError class="mt-2" :message="form.errors.email" />
-            </div>
+                                    <!-- Password -->
+                                    <v-text-field v-model="form.password" :error-messages="form.errors.password"
+                                        :type="showPassword ? 'text' : 'password'" label="Password" name="password"
+                                        required variant="outlined" autocomplete="new-password" prepend-icon="mdi-lock"
+                                        persistent-placeholder
+                                        :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
+                                        @click:append-inner="showPassword = !showPassword" />
 
-            <div class="mt-4">
-                <InputLabel for="password" value="Password" />
-                <TextInput
-                    id="password"
-                    v-model="form.password"
-                    type="password"
-                    class="mt-1 block w-full"
-                    required
-                    autocomplete="new-password"
-                />
-                <InputError class="mt-2" :message="form.errors.password" />
-            </div>
+                                    <!-- Password Confirmation -->
+                                    <v-text-field v-model="form.password_confirmation"
+                                        :error-messages="form.errors.password_confirmation"
+                                        :type="showPasswordConfirmation ? 'text' : 'password'" label="Confirm Password"
+                                        name="password_confirmation" required variant="outlined"
+                                        autocomplete="new-password" prepend-icon="mdi-lock-check" persistent-placeholder
+                                        :append-inner-icon="showPasswordConfirmation ? 'mdi-eye' : 'mdi-eye-off'"
+                                        @click:append-inner="showPasswordConfirmation = !showPasswordConfirmation" />
 
-            <div class="mt-4">
-                <InputLabel for="password_confirmation" value="Confirm Password" />
-                <TextInput
-                    id="password_confirmation"
-                    v-model="form.password_confirmation"
-                    type="password"
-                    class="mt-1 block w-full"
-                    required
-                    autocomplete="new-password"
-                />
-                <InputError class="mt-2" :message="form.errors.password_confirmation" />
-            </div>
+                                    <!-- Terms and Conditions -->
+                                    <v-checkbox v-if="$page.props.jetstream.hasTermsAndPrivacyPolicyFeature"
+                                        v-model="form.terms" :error-messages="form.errors.terms" color="primary"
+                                        class="mt-2">
+                                        <template v-slot:label>
+                                            <div class="text-wrap">
+                                                I agree to the
+                                                <a :href="route('terms.show')" class="text-primary text-decoration-none"
+                                                    target="_blank">
+                                                    Terms of Service
+                                                </a>
+                                                and
+                                                <a :href="route('policy.show')"
+                                                    class="text-primary text-decoration-none" target="_blank">
+                                                    Privacy Policy
+                                                </a>
+                                            </div>
+                                        </template>
+                                    </v-checkbox>
 
-            <div v-if="$page.props.jetstream.hasTermsAndPrivacyPolicyFeature" class="mt-4">
-                <InputLabel for="terms">
-                    <div class="flex items-center">
-                        <Checkbox id="terms" v-model:checked="form.terms" name="terms" required />
+                                    <div class="d-flex flex-column gap-4 mt-2">
+                                        <!-- Register Button -->
+                                        <v-btn type="submit" color="primary" block :loading="form.processing"
+                                            :disabled="form.processing" elevation="2">
+                                            Register
+                                        </v-btn>
 
-                        <div class="ms-2">
-                            I agree to the <a target="_blank" :href="route('terms.show')" class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Terms of Service</a> and <a target="_blank" :href="route('policy.show')" class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Privacy Policy</a>
-                        </div>
-                    </div>
-                    <InputError class="mt-2" :message="form.errors.terms" />
-                </InputLabel>
-            </div>
+                                        <!-- Already Registered Link -->
+                                        <div class="text-center">
+                                            <v-btn :href="route('login')" variant="text" color="primary">
+                                                Already registered?
+                                            </v-btn>
+                                        </div>
 
-            <div class="flex items-center justify-end mt-4">
-                <Link :href="route('login')" class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    Already registered?
-                </Link>
+                                        <v-divider class="my-4">
+                                            <span class="text-medium-emphasis">Or register with</span>
+                                        </v-divider>
 
-                <PrimaryButton class="ms-4" :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
-                    Register
-                </PrimaryButton>
-            </div>
-        </form>
-    </AuthenticationCard>
+                                        <!-- Social Registration -->
+                                        <v-row dense>
+                                            <v-col cols="6">
+                                                <v-btn :href="route('socialite.redirect', 'google')" color="error" block
+                                                    prepend-icon="mdi-google" elevation="2">
+                                                    Google
+                                                </v-btn>
+                                            </v-col>
+
+                                            <v-col cols="6">
+                                                <v-btn :href="route('socialite.redirect', 'facebook')" color="#1877F2"
+                                                    block prepend-icon="mdi-facebook" elevation="2">
+                                                    Facebook
+                                                </v-btn>
+                                            </v-col>
+                                        </v-row>
+                                    </div>
+                                </v-form>
+                            </v-card-text>
+                        </v-card>
+                    </v-col>
+                </v-row>
+            </v-container>
+        </v-main>
+    </v-app>
 </template>
+
+<style scoped>
+.v-card-text :deep(.v-field__append-inner) {
+    padding-inline-start: 12px;
+}
+
+.text-wrap {
+    white-space: normal;
+}
+</style>

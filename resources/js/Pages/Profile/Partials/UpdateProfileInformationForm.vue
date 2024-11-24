@@ -1,13 +1,7 @@
 <script setup>
 import { ref } from 'vue';
-import { Link, router, useForm } from '@inertiajs/vue3';
-import ActionMessage from '@/Components/ActionMessage.vue';
-import FormSection from '@/Components/FormSection.vue';
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
+import { Link, useForm, usePage } from '@inertiajs/vue3';
+import { route } from 'ziggy-js';
 
 const props = defineProps({
     user: Object,
@@ -47,7 +41,7 @@ const selectNewPhoto = () => {
 const updatePhotoPreview = () => {
     const photo = photoInput.value.files[0];
 
-    if (! photo) return;
+    if (!photo) return;
 
     const reader = new FileReader();
 
@@ -59,7 +53,7 @@ const updatePhotoPreview = () => {
 };
 
 const deletePhoto = () => {
-    router.delete(route('current-user-photo.destroy'), {
+    form.delete(route('current-user-photo.destroy'), {
         preserveScroll: true,
         onSuccess: () => {
             photoPreview.value = null;
@@ -76,115 +70,73 @@ const clearPhotoFileInput = () => {
 </script>
 
 <template>
-    <FormSection @submitted="updateProfileInformation">
-        <template #title>
-            Profile Information
-        </template>
+    <v-card>
+        <v-card-title>Profile Information</v-card-title>
+        <v-card-text>
+            <v-form @submit.prevent="updateProfileInformation">
+                <!-- Profile Photo -->
+                <div v-if="$page.props.jetstream.managesProfilePhotos">
+                    <v-card-subtitle>Photo</v-card-subtitle>
 
-        <template #description>
-            Update your account's profile information and email address.
-        </template>
+                    <!-- New Profile Photo Preview -->
+                    <div class="mt-2" v-if="photoPreview">
+                        <v-img :src="photoPreview" width="100" height="100" cover class="rounded-circle" />
+                    </div>
 
-        <template #form>
-            <!-- Profile Photo -->
-            <div v-if="$page.props.jetstream.managesProfilePhotos" class="col-span-6 sm:col-span-4">
-                <!-- Profile Photo File Input -->
-                <input
-                    id="photo"
-                    ref="photoInput"
-                    type="file"
-                    class="hidden"
-                    @change="updatePhotoPreview"
-                >
+                    <template v-else>
+                        <v-img :src="user.profile_photo_url" :alt="user.name" width="100" height="100" cover
+                            class="rounded-circle" />
+                    </template>
 
-                <InputLabel for="photo" value="Photo" />
+                    <v-row class="mt-4">
+                        <v-col>
+                            <v-btn color="secondary" @click="selectNewPhoto" class="mr-2">
+                                Select A New Photo
+                            </v-btn>
 
-                <!-- Current Profile Photo -->
-                <div v-show="! photoPreview" class="mt-2">
-                    <img :src="user.profile_photo_url" :alt="user.name" class="rounded-full size-20 object-cover">
+                            <v-btn v-if="user.profile_photo_path" type="button" color="error" @click="deletePhoto">
+                                Remove Photo
+                            </v-btn>
+                        </v-col>
+                    </v-row>
+
+                    <input type="file" ref="photoInput" @change="updatePhotoPreview" hidden />
                 </div>
 
-                <!-- New Profile Photo Preview -->
-                <div v-show="photoPreview" class="mt-2">
-                    <span
-                        class="block rounded-full size-20 bg-cover bg-no-repeat bg-center"
-                        :style="'background-image: url(\'' + photoPreview + '\');'"
-                    />
-                </div>
+                <!-- Name -->
+                <v-text-field v-model="form.name" label="Name" required :error-messages="form.errors.name" class="mt-4"
+                    variant="outlined" />
 
-                <SecondaryButton class="mt-2 me-2" type="button" @click.prevent="selectNewPhoto">
-                    Select A New Photo
-                </SecondaryButton>
+                <!-- Email -->
+                <v-text-field v-model="form.email" label="Email" required :error-messages="form.errors.email"
+                    variant="outlined" />
 
-                <SecondaryButton
-                    v-if="user.profile_photo_path"
-                    type="button"
-                    class="mt-2"
-                    @click.prevent="deletePhoto"
-                >
-                    Remove Photo
-                </SecondaryButton>
-
-                <InputError :message="form.errors.photo" class="mt-2" />
-            </div>
-
-            <!-- Name -->
-            <div class="col-span-6 sm:col-span-4">
-                <InputLabel for="name" value="Name" />
-                <TextInput
-                    id="name"
-                    v-model="form.name"
-                    type="text"
-                    class="mt-1 block w-full"
-                    required
-                    autocomplete="name"
-                />
-                <InputError :message="form.errors.name" class="mt-2" />
-            </div>
-
-            <!-- Email -->
-            <div class="col-span-6 sm:col-span-4">
-                <InputLabel for="email" value="Email" />
-                <TextInput
-                    id="email"
-                    v-model="form.email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    required
-                    autocomplete="username"
-                />
-                <InputError :message="form.errors.email" class="mt-2" />
-
-                <div v-if="$page.props.jetstream.hasEmailVerification && user.email_verified_at === null">
+                <div v-if="
+                        $page.props.jetstream.hasEmailVerification &&
+                        user.email_verified_at === null
+                    ">
                     <p class="text-sm mt-2">
                         Your email address is unverified.
 
-                        <Link
-                            :href="route('verification.send')"
-                            method="post"
-                            as="button"
-                            class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                            @click.prevent="sendEmailVerification"
-                        >
-                            Click here to re-send the verification email.
+                        <Link :href="route('verification.send')" method="post" as="button"
+                            class="text-decoration-underline text-primary" @click="sendEmailVerification">
+                        Click here to re-send the verification email.
                         </Link>
                     </p>
 
-                    <div v-show="verificationLinkSent" class="mt-2 font-medium text-sm text-green-600">
-                        A new verification link has been sent to your email address.
+                    <div v-show="verificationLinkSent" class="mt-2 text-success text-sm">
+                        A new verification link has been sent to your email
+                        address.
                     </div>
                 </div>
-            </div>
-        </template>
+            </v-form>
+        </v-card-text>
 
-        <template #actions>
-            <ActionMessage :on="form.recentlySuccessful" class="me-3">
-                Saved.
-            </ActionMessage>
-
-            <PrimaryButton :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
+        <v-card-actions>
+            <v-spacer />
+            <v-btn color="primary" :loading="form.processing" @click="updateProfileInformation">
                 Save
-            </PrimaryButton>
-        </template>
-    </FormSection>
+            </v-btn>
+        </v-card-actions>
+    </v-card>
 </template>

@@ -1,289 +1,376 @@
 <script setup>
-import { ref } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
-import ApplicationMark from '@/Components/ApplicationMark.vue';
-import Banner from '@/Components/Banner.vue';
-import Dropdown from '@/Components/Dropdown.vue';
-import DropdownLink from '@/Components/DropdownLink.vue';
-import NavLink from '@/Components/NavLink.vue';
-import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
+import { ref, computed, watch, nextTick } from 'vue';
+import { usePage, router, Link } from '@inertiajs/vue3';
+import { route } from 'ziggy-js';
 
-defineProps({
-    title: String,
+const page = usePage();
+const user = computed(() => page.props.auth?.user);
+const teams = computed(() => page.props.jetstream?.hasTeamFeatures);
+const userTeams = computed(() => page.props.auth?.user?.all_teams || []);
+
+const drawer = ref(false);
+const theme = ref('dark');
+const showSearch = ref(false);
+const searchQuery = ref('');
+const showNotifications = ref(false);
+
+// Navigation items with proper route checking
+const navigation = computed(() => {
+    const items = [
+        {
+            title: 'Dashboard',
+            icon: 'mdi-view-dashboard-outline',
+            href: route('dashboard'),
+            active: route().current('dashboard'),
+            show: true
+        },
+        {
+            title: 'Profile',
+            icon: 'mdi-account-outline',
+            href: route('profile.show'),
+            active: route().current('profile.show'),
+            show: true
+        }
+    ];
+
+    if (teams.value && user.value?.current_team) {
+        items.push({
+            title: 'Teams',
+            icon: 'mdi-account-group-outline',
+            href: route('teams.show', { team: user.value.current_team.id }),
+            active: route().current('teams.show', { team: user.value.current_team.id }),
+            show: teams.value
+        });
+    }
+
+    return items;
 });
 
-const showingNavigationDropdown = ref(false);
+// Secondary navigation with proper route handling
+const secondaryNavigation = computed(() => {
+    const items = [
+        {
+            title: 'Settings',
+            icon: 'mdi-cog-outline',
+            href: route('profile.show'),
+            active: route().current('profile.show'),
+            show: true
+        }
+    ];
 
-const switchToTeam = (team) => {
-    router.put(route('current-team.update'), {
-        team_id: team.id,
-    }, {
-        preserveState: false,
-    });
+    // Only add API Tokens if the route exists
+    try {
+        if (route().has('api-tokens.index')) {
+            items.push({
+                title: 'API Tokens',
+                icon: 'mdi-key-outline',
+                href: route('api-tokens.index'),
+                active: route().current('api-tokens.index'),
+                show: true
+            });
+        }
+    } catch (error) {
+        console.warn('API tokens route not available');
+    }
+
+    return items;
+});
+
+// Quick actions
+const quickActions = [
+    {
+        title: 'New Project',
+        icon: 'mdi-folder-plus-outline',
+        action: () => console.log('New Project')
+    },
+    {
+        title: 'Upload Files',
+        icon: 'mdi-cloud-upload-outline',
+        action: () => console.log('Upload Files')
+    },
+    {
+        title: 'Generate Report',
+        icon: 'mdi-file-chart-outline',
+        action: () => console.log('Generate Report')
+    }
+];
+
+// Notifications
+const notifications = ref([
+    {
+        id: 1,
+        type: 'info',
+        message: 'System update scheduled for tonight',
+        time: '2 hours ago',
+        read: false
+    },
+    {
+        id: 2,
+        type: 'warning',
+        message: 'Storage space running low',
+        time: '5 hours ago',
+        read: false
+    }
+]);
+
+// Modified breadcrumbs with better error handling
+const breadcrumbs = computed(() => {
+    try {
+        const current = route().current();
+        if (!current) return [];
+
+        const segments = current.split('.');
+        return segments.map((segment, index) => ({
+            title: segment.charAt(0).toUpperCase() + segment.slice(1),
+            href: route(segments.slice(0, index + 1).join('.')),
+            disabled: index === segments.length - 1
+        }));
+    } catch (error) {
+        console.warn('Error generating breadcrumbs:', error);
+        return [];
+    }
+});
+
+// Actions
+const toggleTheme = () => {
+    theme.value = theme.value === 'light' ? 'dark' : 'light';
+};
+
+const toggleSearch = async () => {
+    showSearch.value = !showSearch.value;
+    if (showSearch.value) {
+        await nextTick();
+        document.getElementById('search-input')?.focus();
+    }
+};
+
+const performSearch = () => {
+    console.log('Searching for:', searchQuery.value);
+    // Implement search functionality
+};
+
+const markAsRead = (id) => {
+    const notification = notifications.value.find(n => n.id === id);
+    if (notification) notification.read = true;
 };
 
 const logout = () => {
     router.post(route('logout'));
 };
+
+const handleVisibility = (visible) => {
+    const mainContent = document.querySelector('.v-main');
+    if (mainContent) {
+        if (visible) {
+            mainContent.classList.add('content-blur');
+        } else {
+            mainContent.classList.remove('content-blur');
+        }
+    }
+};
+
+// Watch drawer state
+watch(drawer, handleVisibility);
 </script>
 
 <template>
-    <div>
-        <Head :title="title" />
+    <v-app>
+        <!-- Navigation Drawer -->
+        <v-navigation-drawer v-model="drawer" :rail="false" permanent class="elevation-3">
+            <!-- App Logo / Brand -->
+            <div class="px-2 py-4">
+                <v-list-item :prepend-avatar="user?.profile_photo_url" :title="user?.name" :subtitle="user?.email"
+                    class="mb-2" />
+            </div>
 
-        <Banner />
+            <v-divider></v-divider>
 
-        <div class="min-h-screen bg-gray-100">
-            <nav class="bg-white border-b border-gray-100">
-                <!-- Primary Navigation Menu -->
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div class="flex justify-between h-16">
-                        <div class="flex">
-                            <!-- Logo -->
-                            <div class="shrink-0 flex items-center">
-                                <Link :href="route('dashboard')">
-                                    <ApplicationMark class="block h-9 w-auto" />
-                                </Link>
-                            </div>
+            <!-- Primary Navigation -->
+            <v-list nav density="comfortable">
+                <template v-for="item in navigation" :key="item.title">
+                    <v-list-item v-if="item.show" :href="item.href" :prepend-icon="item.icon" :title="item.title"
+                        :active="item.active" :value="item.title" class="mb-1" rounded="lg"
+                        @click.prevent="router.visit(item.href)">
+                        <template v-slot:append v-if="item.badge">
+                            <v-chip size="small" :color="item.badge.color || 'primary'">
+                                {{ item.badge.text }}
+                            </v-chip>
+                        </template>
+                    </v-list-item>
+                </template>
+            </v-list>
 
-                            <!-- Navigation Links -->
-                            <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                <NavLink :href="route('dashboard')" :active="route().current('dashboard')">
-                                    Dashboard
-                                </NavLink>
-                            </div>
-                        </div>
+            <template v-slot:append>
+                <v-divider class="mb-2"></v-divider>
 
-                        <div class="hidden sm:flex sm:items-center sm:ms-6">
-                            <div class="ms-3 relative">
-                                <!-- Teams Dropdown -->
-                                <Dropdown v-if="$page.props.jetstream.hasTeamFeatures" align="right" width="60">
-                                    <template #trigger>
-                                        <span class="inline-flex rounded-md">
-                                            <button type="button" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none focus:bg-gray-50 active:bg-gray-50 transition ease-in-out duration-150">
-                                                {{ $page.props.auth.user.current_team.name }}
+                <!-- Secondary Navigation -->
+                <v-list nav density="comfortable">
+                    <template v-for="item in secondaryNavigation" :key="item.title">
+                        <v-list-item v-if="item.show" :href="item.href" :prepend-icon="item.icon" :title="item.title"
+                            :value="item.title" rounded="lg" class="mb-1" @click.prevent="router.visit(item.href)" />
+                    </template>
 
-                                                <svg class="ms-2 -me-0.5 size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
-                                                </svg>
-                                            </button>
-                                        </span>
-                                    </template>
+                    <v-list-item @click="logout" prepend-icon="mdi-logout" title="Logout" rounded="lg"
+                        class="mb-2"></v-list-item>
+                </v-list>
+            </template>
+        </v-navigation-drawer>
 
-                                    <template #content>
-                                        <div class="w-60">
-                                            <!-- Team Management -->
-                                            <div class="block px-4 py-2 text-xs text-gray-400">
-                                                Manage Team
-                                            </div>
+        <!-- Top App Bar -->
+        <v-app-bar elevation="0">
+            <v-app-bar-nav-icon @click="drawer = !drawer"
+                :icon="drawer ? 'mdi-close' : 'mdi-menu'"></v-app-bar-nav-icon>
 
-                                            <!-- Team Settings -->
-                                            <DropdownLink :href="route('teams.show', $page.props.auth.user.current_team)">
-                                                Team Settings
-                                            </DropdownLink>
+            <v-app-bar-title class="text-capitalize">
+                {{ route().current()?.split('.').pop() || 'Dashboard' }}
+            </v-app-bar-title>
 
-                                            <DropdownLink v-if="$page.props.jetstream.canCreateTeams" :href="route('teams.create')">
-                                                Create New Team
-                                            </DropdownLink>
+            <!-- Search Field -->
+            <v-slide-x-transition>
+                <v-text-field v-if="showSearch" v-model="searchQuery" id="search-input" density="compact"
+                    variant="outlined" hide-details placeholder="Search..." prepend-inner-icon="mdi-magnify"
+                    class="mx-4" @keyup.enter="performSearch"></v-text-field>
+            </v-slide-x-transition>
 
-                                            <!-- Team Switcher -->
-                                            <template v-if="$page.props.auth.user.all_teams.length > 1">
-                                                <div class="border-t border-gray-200" />
+            <template v-slot:append>
+                <!-- Search Toggle -->
+                <v-btn icon class="mr-2" @click="toggleSearch">
+                    <v-icon>mdi-magnify</v-icon>
+                </v-btn>
 
-                                                <div class="block px-4 py-2 text-xs text-gray-400">
-                                                    Switch Teams
-                                                </div>
+                <!-- Theme Toggle -->
+                <v-btn icon class="mr-2" @click="toggleTheme">
+                    <v-icon>{{ theme === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
+                </v-btn>
 
-                                                <template v-for="team in $page.props.auth.user.all_teams" :key="team.id">
-                                                    <form @submit.prevent="switchToTeam(team)">
-                                                        <DropdownLink as="button">
-                                                            <div class="flex items-center">
-                                                                <svg v-if="team.id == $page.props.auth.user.current_team_id" class="me-2 size-5 text-green-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                                </svg>
+                <!-- Quick Actions -->
+                <v-speed-dial direction="bottom" transition="slide-y-reverse-transition" class="mr-2">
+                    <template v-slot:activator>
+                        <v-btn color="primary" icon>
+                            <v-icon>mdi-plus</v-icon>
+                        </v-btn>
+                    </template>
 
-                                                                <div>{{ team.name }}</div>
-                                                            </div>
-                                                        </DropdownLink>
-                                                    </form>
-                                                </template>
-                                            </template>
-                                        </div>
-                                    </template>
-                                </Dropdown>
-                            </div>
+                    <v-btn v-for="action in quickActions" :key="action.title" color="primary" icon
+                        @click="action.action">
+                        <v-icon>{{ action.icon }}</v-icon>
+                        <v-tooltip activator="parent" location="left">
+                            {{ action.title }}
+                        </v-tooltip>
+                    </v-btn>
+                </v-speed-dial>
 
-                            <!-- Settings Dropdown -->
-                            <div class="ms-3 relative">
-                                <Dropdown align="right" width="48">
-                                    <template #trigger>
-                                        <button v-if="$page.props.jetstream.managesProfilePhotos" class="flex text-sm border-2 border-transparent rounded-full focus:outline-none focus:border-gray-300 transition">
-                                            <img class="size-8 rounded-full object-cover" :src="$page.props.auth.user.profile_photo_url" :alt="$page.props.auth.user.name">
-                                        </button>
+                <!-- Notifications -->
+                <v-menu v-model="showNotifications" :close-on-content-click="false" location="bottom end"
+                    min-width="300">
+                    <template v-slot:activator="{ props }">
+                        <v-btn icon v-bind="props" class="mr-2">
+                            <v-icon>mdi-bell-outline</v-icon>
+                            <v-badge :content="notifications.filter(n => !n.read).length" color="error"
+                                v-if="notifications.some(n => !n.read)"></v-badge>
+                        </v-btn>
+                    </template>
 
-                                        <span v-else class="inline-flex rounded-md">
-                                            <button type="button" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none focus:bg-gray-50 active:bg-gray-50 transition ease-in-out duration-150">
-                                                {{ $page.props.auth.user.name }}
-
-                                                <svg class="ms-2 -me-0.5 size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                                                </svg>
-                                            </button>
-                                        </span>
-                                    </template>
-
-                                    <template #content>
-                                        <!-- Account Management -->
-                                        <div class="block px-4 py-2 text-xs text-gray-400">
-                                            Manage Account
-                                        </div>
-
-                                        <DropdownLink :href="route('profile.show')">
-                                            Profile
-                                        </DropdownLink>
-
-                                        <DropdownLink v-if="$page.props.jetstream.hasApiFeatures" :href="route('api-tokens.index')">
-                                            API Tokens
-                                        </DropdownLink>
-
-                                        <div class="border-t border-gray-200" />
-
-                                        <!-- Authentication -->
-                                        <form @submit.prevent="logout">
-                                            <DropdownLink as="button">
-                                                Log Out
-                                            </DropdownLink>
-                                        </form>
-                                    </template>
-                                </Dropdown>
-                            </div>
-                        </div>
-
-                        <!-- Hamburger -->
-                        <div class="-me-2 flex items-center sm:hidden">
-                            <button class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out" @click="showingNavigationDropdown = ! showingNavigationDropdown">
-                                <svg
-                                    class="size-6"
-                                    stroke="currentColor"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        :class="{'hidden': showingNavigationDropdown, 'inline-flex': ! showingNavigationDropdown }"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M4 6h16M4 12h16M4 18h16"
-                                    />
-                                    <path
-                                        :class="{'hidden': ! showingNavigationDropdown, 'inline-flex': showingNavigationDropdown }"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M6 18L18 6M6 6l12 12"
-                                    />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Responsive Navigation Menu -->
-                <div :class="{'block': showingNavigationDropdown, 'hidden': ! showingNavigationDropdown}" class="sm:hidden">
-                    <div class="pt-2 pb-3 space-y-1">
-                        <ResponsiveNavLink :href="route('dashboard')" :active="route().current('dashboard')">
-                            Dashboard
-                        </ResponsiveNavLink>
-                    </div>
-
-                    <!-- Responsive Settings Options -->
-                    <div class="pt-4 pb-1 border-t border-gray-200">
-                        <div class="flex items-center px-4">
-                            <div v-if="$page.props.jetstream.managesProfilePhotos" class="shrink-0 me-3">
-                                <img class="size-10 rounded-full object-cover" :src="$page.props.auth.user.profile_photo_url" :alt="$page.props.auth.user.name">
-                            </div>
-
-                            <div>
-                                <div class="font-medium text-base text-gray-800">
-                                    {{ $page.props.auth.user.name }}
-                                </div>
-                                <div class="font-medium text-sm text-gray-500">
-                                    {{ $page.props.auth.user.email }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="mt-3 space-y-1">
-                            <ResponsiveNavLink :href="route('profile.show')" :active="route().current('profile.show')">
-                                Profile
-                            </ResponsiveNavLink>
-
-                            <ResponsiveNavLink v-if="$page.props.jetstream.hasApiFeatures" :href="route('api-tokens.index')" :active="route().current('api-tokens.index')">
-                                API Tokens
-                            </ResponsiveNavLink>
-
-                            <!-- Authentication -->
-                            <form method="POST" @submit.prevent="logout">
-                                <ResponsiveNavLink as="button">
-                                    Log Out
-                                </ResponsiveNavLink>
-                            </form>
-
-                            <!-- Team Management -->
-                            <template v-if="$page.props.jetstream.hasTeamFeatures">
-                                <div class="border-t border-gray-200" />
-
-                                <div class="block px-4 py-2 text-xs text-gray-400">
-                                    Manage Team
-                                </div>
-
-                                <!-- Team Settings -->
-                                <ResponsiveNavLink :href="route('teams.show', $page.props.auth.user.current_team)" :active="route().current('teams.show')">
-                                    Team Settings
-                                </ResponsiveNavLink>
-
-                                <ResponsiveNavLink v-if="$page.props.jetstream.canCreateTeams" :href="route('teams.create')" :active="route().current('teams.create')">
-                                    Create New Team
-                                </ResponsiveNavLink>
-
-                                <!-- Team Switcher -->
-                                <template v-if="$page.props.auth.user.all_teams.length > 1">
-                                    <div class="border-t border-gray-200" />
-
-                                    <div class="block px-4 py-2 text-xs text-gray-400">
-                                        Switch Teams
-                                    </div>
-
-                                    <template v-for="team in $page.props.auth.user.all_teams" :key="team.id">
-                                        <form @submit.prevent="switchToTeam(team)">
-                                            <ResponsiveNavLink as="button">
-                                                <div class="flex items-center">
-                                                    <svg v-if="team.id == $page.props.auth.user.current_team_id" class="me-2 size-5 text-green-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    </svg>
-                                                    <div>{{ team.name }}</div>
-                                                </div>
-                                            </ResponsiveNavLink>
-                                        </form>
-                                    </template>
+                    <v-card>
+                        <v-list>
+                            <v-list-subheader>Notifications</v-list-subheader>
+                            <v-list-item v-for="notification in notifications" :key="notification.id"
+                                :class="{ 'bg-grey-darken-3': !notification.read }"
+                                @click="markAsRead(notification.id)">
+                                <template v-slot:prepend>
+                                    <v-icon :color="notification.type === 'info' ? 'info' : 'warning'">
+                                        {{ notification.type === 'info' ? 'mdi-information' : 'mdi-alert' }}
+                                    </v-icon>
                                 </template>
-                            </template>
-                        </div>
-                    </div>
-                </div>
-            </nav>
+                                <v-list-item-title>{{ notification.message }}</v-list-item-title>
+                                <v-list-item-subtitle>{{ notification.time }}</v-list-item-subtitle>
+                            </v-list-item>
+                        </v-list>
+                    </v-card>
+                </v-menu>
 
-            <!-- Page Heading -->
-            <header v-if="$slots.header" class="bg-white shadow">
-                <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                    <slot name="header" />
-                </div>
-            </header>
+                <!-- User Menu -->
+                <v-menu transition="slide-y-transition" location="bottom end">
+                    <template v-slot:activator="{ props }">
+                        <v-avatar v-bind="props" :image="user?.profile_photo_url" size="35"
+                            class="cursor-pointer"></v-avatar>
+                    </template>
 
-            <!-- Page Content -->
-            <main>
-                <slot />
-            </main>
-        </div>
-    </div>
+                    <v-list width="200">
+                        <v-list-item :title="user?.name" :subtitle="user?.email" class="mb-2"></v-list-item>
+
+                        <v-divider></v-divider>
+
+                        <template v-for="item in secondaryNavigation" :key="item.title">
+                            <v-list-item v-if="item.show" :href="item.href" :prepend-icon="item.icon"
+                                :title="item.title" @click.prevent="router.visit(item.href)" />
+                        </template>
+
+                        <v-divider></v-divider>
+
+                        <v-list-item @click="logout" prepend-icon="mdi-logout" title="Logout"
+                            color="error"></v-list-item>
+                    </v-list>
+                </v-menu>
+            </template>
+        </v-app-bar>
+
+        <!-- Breadcrumbs -->
+        <v-breadcrumbs v-if="breadcrumbs.length > 0" :items="breadcrumbs" class="px-4 py-2">
+            <template v-slot:divider>
+                <v-icon icon="mdi-chevron-right"></v-icon>
+            </template>
+        </v-breadcrumbs>
+
+        <!-- Main Content -->
+        <v-main>
+            <div v-show="drawer" class="backdrop-overlay" @click="drawer = false; handleVisibility(false)"></div>
+            <slot></slot>
+        </v-main>
+    </v-app>
 </template>
+
+<style scoped>
+.v-navigation-drawer {
+    border-right: 0 !important;
+}
+
+.backdrop-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 5;
+    transition: all 0.3s ease;
+    pointer-events: auto;
+}
+
+:deep(.content-blur) {
+    transition: all 0.3s ease;
+    filter: blur(4px);
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+:deep(.v-navigation-drawer) {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 10 !important;
+}
+
+:deep(.v-app-bar) {
+    z-index: 15 !important;
+}
+
+:deep(.v-speed-dial) {
+    margin-right: 8px;
+}
+
+:deep(.v-speed-dial__list) {
+    padding-top: 8px;
+}
+</style>

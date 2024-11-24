@@ -1,15 +1,11 @@
+<!-- resources/js/Pages/Profile/Partials/UpdatePasswordForm.vue -->
 <script setup>
 import { ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
-import ActionMessage from '@/Components/ActionMessage.vue';
-import FormSection from '@/Components/FormSection.vue';
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
 
-const passwordInput = ref(null);
-const currentPasswordInput = ref(null);
+const showCurrentPassword = ref(false);
+const showNewPassword = ref(false);
+const showConfirmPassword = ref(false);
 
 const form = useForm({
     current_password: '',
@@ -22,79 +18,44 @@ const updatePassword = () => {
         errorBag: 'updatePassword',
         preserveScroll: true,
         onSuccess: () => form.reset(),
-        onError: () => {
-            if (form.errors.password) {
-                form.reset('password', 'password_confirmation');
-                passwordInput.value.focus();
-            }
-
-            if (form.errors.current_password) {
-                form.reset('current_password');
-                currentPasswordInput.value.focus();
-            }
-        },
     });
 };
 </script>
 
 <template>
-    <FormSection @submitted="updatePassword">
-        <template #title>
+    <v-card>
+        <v-card-title class="text-h6">
             Update Password
-        </template>
+        </v-card-title>
 
-        <template #description>
-            Ensure your account is using a long, random password to stay secure.
-        </template>
-
-        <template #form>
-            <div class="col-span-6 sm:col-span-4">
-                <InputLabel for="current_password" value="Current Password" />
-                <TextInput
-                    id="current_password"
-                    ref="currentPasswordInput"
-                    v-model="form.current_password"
-                    type="password"
-                    class="mt-1 block w-full"
-                    autocomplete="current-password"
-                />
-                <InputError :message="form.errors.current_password" class="mt-2" />
+        <v-card-text>
+            <div class="text-subtitle-1 mb-4">
+                Ensure your account is using a long, random password to stay secure.
             </div>
 
-            <div class="col-span-6 sm:col-span-4">
-                <InputLabel for="password" value="New Password" />
-                <TextInput
-                    id="password"
-                    ref="passwordInput"
-                    v-model="form.password"
-                    type="password"
-                    class="mt-1 block w-full"
-                    autocomplete="new-password"
-                />
-                <InputError :message="form.errors.password" class="mt-2" />
-            </div>
+            <v-form @submit.prevent="updatePassword">
+                <v-text-field v-model="form.current_password" :type="showCurrentPassword ? 'text' : 'password'"
+                    label="Current Password" :error-messages="form.errors.current_password" required variant="outlined"
+                    prepend-inner-icon="mdi-lock" :append-inner-icon="showCurrentPassword ? 'mdi-eye' : 'mdi-eye-off'"
+                    @click:append-inner="showCurrentPassword = !showCurrentPassword" class="mb-4"></v-text-field>
 
-            <div class="col-span-6 sm:col-span-4">
-                <InputLabel for="password_confirmation" value="Confirm Password" />
-                <TextInput
-                    id="password_confirmation"
-                    v-model="form.password_confirmation"
-                    type="password"
-                    class="mt-1 block w-full"
-                    autocomplete="new-password"
-                />
-                <InputError :message="form.errors.password_confirmation" class="mt-2" />
-            </div>
-        </template>
+                <v-text-field v-model="form.password" :type="showNewPassword ? 'text' : 'password'" label="New Password"
+                    :error-messages="form.errors.password" required variant="outlined" prepend-inner-icon="mdi-lock"
+                    :append-inner-icon="showNewPassword ? 'mdi-eye' : 'mdi-eye-off'"
+                    @click:append-inner="showNewPassword = !showNewPassword" class="mb-4"></v-text-field>
 
-        <template #actions>
-            <ActionMessage :on="form.recentlySuccessful" class="me-3">
-                Saved.
-            </ActionMessage>
+                <v-text-field v-model="form.password_confirmation" :type="showConfirmPassword ? 'text' : 'password'"
+                    label="Confirm Password" required variant="outlined" prepend-inner-icon="mdi-lock-check"
+                    :append-inner-icon="showConfirmPassword ? 'mdi-eye' : 'mdi-eye-off'"
+                    @click:append-inner="showConfirmPassword = !showConfirmPassword" class="mb-4"></v-text-field>
 
-            <PrimaryButton :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
-                Save
-            </PrimaryButton>
-        </template>
-    </FormSection>
+                <v-card-actions>
+                    <v-spacer></v-spacer>
+                    <v-btn type="submit" color="primary" :loading="form.processing" :disabled="form.processing">
+                        Save
+                    </v-btn>
+                </v-card-actions>
+            </v-form>
+        </v-card-text>
+    </v-card>
 </template>

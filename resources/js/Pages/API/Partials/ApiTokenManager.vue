@@ -210,7 +210,7 @@ const copyToClipboard = async () => {
                     <p class="mb-4">Please copy your new API token. For your security, it won't be shown again.</p>
                     <v-text-field v-model="plainTextToken" readonly variant="outlined">
                         <template v-slot:append>
-                            <v-btn icon="mdi-content-copy" size="small" @click="copyToClipboard">
+                            <v-btn icon="mdi-copy" size="small" @click="copyToClipboard">
                                 <v-tooltip activator="parent">
                                     Copy to clipboard
                                 </v-tooltip>

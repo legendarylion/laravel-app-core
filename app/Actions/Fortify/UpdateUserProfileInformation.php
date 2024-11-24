@@ -1,164 +1,101 @@
-<template>
-  <v-card>
-    <v-card-title>Profile Information</v-card-title>
-    <v-card-text>
-      <v-form @submit.prevent="updateProfileInformation">
-        <div v-if="$page.props.jetstream.managesProfilePhotos">
-          <!-- Profile Photo -->
-          <div class="mb-6">
-            <!-- Current Profile Photo -->
-            <div v-show="!photoPreview" class="mt-2">
-              <img :src="user.profile_photo_url" :alt="user.name" class="rounded-full h-20 w-20 object-cover">
-            </div>
+<?php
 
-            <!-- New Profile Photo Preview -->
-            <div v-show="photoPreview" class="mt-2">
-              <span
-                class="block rounded-full w-20 h-20 bg-cover bg-no-repeat bg-center"
-                :style="'background-image: url(\'' + photoPreview + '\');'"
-              />
-            </div>
+namespace App\Actions\Fortify;
 
-            <v-file-input
-              ref="photo"
-              v-model="form.photo"
-              type="file"
-              class="mt-2"
-              accept="image/*"
-              @change="updatePhotoPreview"
-              :error-messages="form.errors.photo"
-              label="Select A New Photo"
-              variant="outlined"
-              density="comfortable"
-              hide-details
-            />
-          </div>
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use App\Models\User;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Laravel\Fortify\Contracts\UpdatesUserProfileInformation;
 
-          <!-- Name -->
-          <v-text-field
-            v-model="form.name"
-            type="text"
-            label="Name"
-            :error-messages="form.errors.name"
-            variant="outlined"
-            density="comfortable"
-            class="mt-4"
-          />
+class UpdateUserProfileInformation implements UpdatesUserProfileInformation
+{
+    public function update(User $user, array $input): void
+    {
+        // Get the request instance
+        $request = request();
+        
+        Log::info('Starting profile update', [
+            'user_id' => $user->id,
+            'has_file' => $request->hasFile('photo'),
+            'file_valid' => $request->hasFile('photo') ? $request->file('photo')->isValid() : false,
+            'input_keys' => array_keys($input),
+            'files' => $request->allFiles(),
+        ]);
 
-          <!-- Email -->
-          <v-text-field
-            v-model="form.email"
-            type="email"
-            label="Email"
-            :error-messages="form.errors.email"
-            variant="outlined"
-            density="comfortable"
-            class="mt-4"
-          />
+        Validator::make($input, [
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
+            'photo' => ['nullable', 'mimes:jpg,jpeg,png', 'max:2048'],
+        ])->validateWithBag('updateProfileInformation');
 
-          <div v-if="$page.props.jetstream.hasEmailVerification && user.email_verified_at === null">
-            <p class="text-sm mt-2">
-              Your email address is unverified.
-              <Link :href="route('verification.send')" method="post" as="button" class="text-primary">
-                Click here to re-send the verification email.
-              </Link>
-            </p>
+        if ($request->hasFile('photo')) {
+            try {
+                $file = $request->file('photo');
+                Log::info('Processing photo upload', [
+                    'original_name' => $file->getClientOriginalName(),
+                    'mime_type' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                    'error' => $file->getError(),
+                ]);
 
-            <div v-show="status === 'verification-link-sent'" class="mt-2 text-success text-sm">
-              A new verification link has been sent to your email address.
-            </div>
-          </div>
-        </div>
+                // Generate a unique filename
+                $filename = time() . '_' . $file->getClientOriginalName();
+                
+                // Store the file
+                $path = $file->storeAs(
+                    'profile-photos',
+                    $filename,
+                    ['disk' => 'public']
+                );
 
-        <div class="d-flex justify-end mt-6">
-          <v-btn
-            v-if="form.photo"
-            type="button"
-            class="mr-4"
-            @click="clearPhotoInput"
-            color="error"
-            variant="outlined"
-          >
-            Remove Photo
-          </v-btn>
+                Log::info('Photo stored at path', ['path' => $path]);
 
-          <v-btn
-            :loading="form.processing"
-            color="primary"
-            type="submit"
-          >
-            Save
-          </v-btn>
-        </div>
-      </v-form>
-    </v-card-text>
-  </v-card>
-</template>
+                // Delete old photo if exists
+                if ($user->profile_photo_path) {
+                    Storage::disk('public')->delete($user->profile_photo_path);
+                }
 
-<script>
-import { defineComponent } from 'vue'
-import { Link } from '@inertiajs/vue3'
-import { useForm } from '@inertiajs/vue3'
+                // Update user's photo path
+                $user->forceFill([
+                    'profile_photo_path' => $path
+                ])->save();
 
-export default defineComponent({
-  components: {
-    Link,
-  },
+                Log::info('User profile updated', [
+                    'user_id' => $user->id,
+                    'photo_path' => $path
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Error in photo upload', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                throw $e;
+            }
+        }
 
-  props: {
-    user: {
-      type: Object,
-      required: true,
-    },
-  },
-
-  data() {
-    return {
-      photoPreview: null,
-      form: useForm({
-        _method: 'PUT',
-        name: this.user.name,
-        email: this.user.email,
-        photo: null,
-      }),
+        if ($input['email'] !== $user->email &&
+            $user instanceof MustVerifyEmail) {
+            $this->updateVerifiedUser($user, $input);
+        } else {
+            $user->forceFill([
+                'name' => $input['name'],
+                'email' => $input['email'],
+            ])->save();
+        }
     }
-  },
 
-  methods: {
-    updatePhotoPreview() {
-      const photo = this.$refs.photo.files[0]
+    protected function updateVerifiedUser(User $user, array $input): void
+    {
+        $user->forceFill([
+            'name' => $input['name'],
+            'email' => $input['email'],
+            'email_verified_at' => null,
+        ])->save();
 
-      if (!photo) {
-        return
-      }
-
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        this.photoPreview = e.target.result
-      }
-
-      reader.readAsDataURL(photo)
-    },
-
-    clearPhotoInput() {
-      this.$refs.photo.value = null
-      this.form.photo = null
-      this.photoPreview = null
-    },
-
-    updateProfileInformation() {
-      if (this.$refs.photo) {
-        this.form.photo = this.$refs.photo.files[0]
-      }
-
-      this.form.post(route('user-profile-information.update'), {
-        errorBag: 'updateProfileInformation',
-        preserveScroll: true,
-        onSuccess: () => {
-          this.clearPhotoInput()
-        },
-      })
-    },
-  },
-})
-</script>
+        $user->sendEmailVerificationNotification();
+    }
+}

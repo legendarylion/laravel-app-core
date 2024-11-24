@@ -131,11 +131,6 @@ const breadcrumbs = computed(() => {
     }
 });
 
-// Actions
-const toggleTheme = () => {
-    theme.value = theme.value === 'light' ? 'dark' : 'light';
-};
-
 const toggleSearch = async () => {
     showSearch.value = !showSearch.value;
     if (showSearch.value) {
@@ -238,10 +233,6 @@ watch(drawer, handleVisibility);
                     <v-icon>mdi-magnify</v-icon>
                 </v-btn>
 
-                <!-- Theme Toggle -->
-                <v-btn icon class="mr-2" @click="toggleTheme">
-                    <v-icon>{{ theme === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
-                </v-btn>
 
                 <!-- Quick Actions -->
                 <v-speed-dial direction="bottom" transition="slide-y-reverse-transition" class="mr-2">

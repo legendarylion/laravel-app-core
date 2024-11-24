@@ -10,11 +10,26 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
+use Laravel\Fortify\Actions\RedirectIfTwoFactorAuthenticatable;
+use Laravel\Fortify\TwoFactorAuthenticatable;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Foundation\Validation\ValidatesRequests;
+use Laravel\Fortify\Features;
 
-class SocialiteController extends Controller
+class SocialiteController extends BaseController
 {
+    use AuthorizesRequests, ValidatesRequests;
+
     public function redirect(string $provider): RedirectResponse
     {
+        Log::info('Social callback started', [
+            'provider' => $provider,
+            'url' => request()->url(),
+            'session_id' => session()->getId()
+        ]);
+        
         return Socialite::driver($provider)->redirect();
     }
 
@@ -23,18 +38,20 @@ class SocialiteController extends Controller
         try {
             $socialUser = Socialite::driver($provider)->user();
             
-            // First try to find user by provider_id
+            Log::info('Social callback started', [
+                'provider' => $provider,
+                'email' => $socialUser->getEmail(),
+                'session_id' => session()->getId()
+            ]);
+
             $user = User::where('provider_id', $socialUser->getId())
                        ->where('provider_name', $provider)
                        ->first();
-            
-            // If not found, try to find by email
+        
             if (!$user) {
                 $user = User::where('email', $socialUser->getEmail())->first();
                 
                 if ($user) {
-                    // User exists but used a different provider
-                    // Update their provider credentials
                     $user->update([
                         'provider_name' => $provider,
                         'provider_id' => $socialUser->getId(),
@@ -42,7 +59,6 @@ class SocialiteController extends Controller
                         'provider_refresh_token' => $socialUser->refreshToken,
                     ]);
                 } else {
-                    // Create new user
                     $user = User::create([
                         'name' => $socialUser->getName(),
                         'email' => $socialUser->getEmail(),
@@ -55,17 +71,51 @@ class SocialiteController extends Controller
                     ]);
                 }
             } else {
-                // Update the token for existing user
                 $user->update([
                     'provider_token' => $socialUser->token,
                     'provider_refresh_token' => $socialUser->refreshToken,
                 ]);
             }
 
-            Auth::login($user);
-            return redirect()->route('dashboard');
+            // Check if 2FA is enabled for this user
+            if (Features::enabled(Features::twoFactorAuthentication()) && 
+                !empty($user->two_factor_secret) && 
+                !empty($user->two_factor_confirmed_at)) {
+                
+                Log::info('2FA is enabled for user', [
+                    'user_id' => $user->id,
+                    'session_id' => session()->getId()
+                ]);
+
+                session([
+                    'login.id' => $user->id,
+                    'login.remember' => true,
+                    'url.intended' => url('/dashboard')
+                ]);
+
+                Log::info('Set session for 2FA', [
+                    'session_data' => session()->all()
+                ]);
+
+                return redirect()->route('two-factor.login');
+            }
+
+            // If no 2FA required, log in normally
+            Auth::login($user, true);
+            
+            Log::info('Standard login completed', [
+                'user_id' => $user->id,
+                'is_authenticated' => Auth::check()
+            ]);
+
+            return redirect()->intended('/dashboard');
 
         } catch (Exception $e) {
+            Log::error('Social auth error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return redirect()->route('login')
                 ->with('error', 'Authentication failed: ' . $e->getMessage());
         }

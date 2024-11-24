@@ -21,34 +21,14 @@ const photoPreview = ref(null);
 const photoInput = ref(null);
 
 const updateProfileInformation = () => {
-    // Create FormData instance
-    const formData = new FormData();
-
-    // Always append these required fields
-    formData.append('name', form.name);
-    formData.append('email', form.email);
-
-    // Add photo if selected
     if (photoInput.value?.files[0]) {
-        formData.append('photo', photoInput.value.files[0]);
-        console.log('Attaching photo:', photoInput.value.files[0].name);
+        form.photo = photoInput.value.files[0];
     }
 
-    // Debug log
-    console.log('Submitting form with data:', {
-        name: formData.get('name'),
-        email: formData.get('email'),
-        hasPhoto: formData.has('photo')
-    });
-
-    form.submit('put', route('user-profile-information.update'), {
+    form.post(route('user-profile-information.update'), {
         preserveScroll: true,
-        forceFormData: true,
-        data: formData,
         onSuccess: () => {
-            console.log('Profile update successful');
-            clearPhotoFileInput();
-            window.location.reload();
+            // clearPhotoFileInput();
         },
         onError: (errors) => {
             console.error('Profile update errors:', errors);
@@ -60,18 +40,14 @@ const updatePhotoPreview = () => {
     const photo = photoInput.value.files[0];
     if (!photo) return;
 
-    // Check file size
+    // Check file size (2MB limit)
     if (photo.size > 2 * 1024 * 1024) {
         alert('File size must be less than 2MB');
         clearPhotoFileInput();
         return;
     }
 
-    console.log('Photo selected:', {
-        name: photo.name,
-        type: photo.type,
-        size: photo.size
-    });
+    form.photo = photo;
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -89,6 +65,7 @@ const clearPhotoFileInput = () => {
         photoInput.value.value = null;
     }
     photoPreview.value = null;
+    form.photo = null;
 };
 
 const deletePhoto = () => {
@@ -116,14 +93,14 @@ const deletePhoto = () => {
 
                     <div class="d-flex align-center mt-2">
                         <!-- Current Profile Photo -->
-                        <div v-if="!photoPreview" class="mr-4">
+                        <div v-show="!photoPreview" class="mr-4">
                             <v-avatar size="80">
                                 <v-img :src="user.profile_photo_url" :alt="user.name"></v-img>
                             </v-avatar>
                         </div>
 
                         <!-- New Profile Photo Preview -->
-                        <div v-if="photoPreview" class="mr-4">
+                        <div v-show="photoPreview" class="mr-4">
                             <v-avatar size="80">
                                 <v-img :src="photoPreview" :alt="user.name"></v-img>
                             </v-avatar>

@@ -4,7 +4,10 @@ import '../css/app.css';
 import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
-import { ZiggyVue } from '../../vendor/tightenco/ziggy/dist/vue.m';
+import { ZiggyVue } from '../../vendor/tightenco/ziggy';
+
+import * as Ziggy from 'ziggy-js'
+const route = Ziggy.default
 
 // Vuetify
 import 'vuetify/styles'
@@ -17,9 +20,12 @@ const vuetify = createVuetify({
     components,
     directives,
     theme: {
-        defaultTheme: 'light'
+        defaultTheme: 'dark'
     }
 })
+
+const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+window.route = route;
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
@@ -28,7 +34,7 @@ createInertiaApp({
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue)
-            .use(vuetify)  // Add this line
+            .use(vuetify)
             .mount(el);
     },
     progress: {

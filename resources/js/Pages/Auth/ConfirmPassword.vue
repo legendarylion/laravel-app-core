@@ -1,63 +1,86 @@
-<script setup>
-import { ref } from 'vue';
-import { Head, useForm } from '@inertiajs/vue3';
-import AuthenticationCard from '@/Components/AuthenticationCard.vue';
-import AuthenticationCardLogo from '@/Components/AuthenticationCardLogo.vue';
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
-
-const form = useForm({
-    password: '',
-});
-
-const passwordInput = ref(null);
-
-const submit = () => {
-    form.post(route('password.confirm'), {
-        onFinish: () => {
-            form.reset();
-
-            passwordInput.value.focus();
-        },
-    });
-};
-</script>
-
 <template>
-    <Head title="Secure Area" />
+    <v-dialog v-model="confirmingPassword" persistent max-width="500">
+        <v-card>
+            <v-card-title class="text-h5">
+                Confirm Password
+            </v-card-title>
 
-    <AuthenticationCard>
-        <template #logo>
-            <AuthenticationCardLogo />
-        </template>
+            <v-card-text>
+                <p class="text-body-1 mb-4">
+                    For your security, please confirm your password to continue.
+                </p>
 
-        <div class="mb-4 text-sm text-gray-600">
-            This is a secure area of the application. Please confirm your password before continuing.
-        </div>
+                <v-form @submit.prevent="confirmPassword" ref="form">
+                    <v-text-field v-model="form.password" label="Password" :error-messages="form.errors.password"
+                        :loading="form.processing" :disabled="form.processing"
+                        :type="showPassword ? 'text' : 'password'" variant="outlined" density="comfortable"
+                        :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                        @click:append-inner="showPassword = !showPassword" required autocomplete="current-password"
+                        @keyup.enter="confirmPassword" />
+                </v-form>
+            </v-card-text>
 
-        <form @submit.prevent="submit">
-            <div>
-                <InputLabel for="password" value="Password" />
-                <TextInput
-                    id="password"
-                    ref="passwordInput"
-                    v-model="form.password"
-                    type="password"
-                    class="mt-1 block w-full"
-                    required
-                    autocomplete="current-password"
-                    autofocus
-                />
-                <InputError class="mt-2" :message="form.errors.password" />
-            </div>
+            <v-card-actions>
+                <v-spacer />
 
-            <div class="flex justify-end mt-4">
-                <PrimaryButton class="ms-4" :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
+                <v-btn variant="text" color="default" :disabled="form.processing" @click="closeModal">
+                    Cancel
+                </v-btn>
+
+                <v-btn color="primary" :loading="form.processing" @click="confirmPassword">
                     Confirm
-                </PrimaryButton>
-            </div>
-        </form>
-    </AuthenticationCard>
+                </v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
 </template>
+
+<script setup>
+import { ref, watch } from 'vue'
+import { useForm } from '@inertiajs/vue3'
+
+const props = defineProps({
+    show: {
+        type: Boolean,
+        default: false,
+    },
+})
+
+const emit = defineEmits(['close'])
+
+const confirmingPassword = ref(false)
+const showPassword = ref(false)
+const form = useForm({ password: '' })
+
+watch(() => props.show, (show) => {
+    confirmingPassword.value = show
+
+    if (show) {
+        setTimeout(() => {
+            form.password = ''
+            form.clearErrors()
+        }, 100)
+    }
+})
+
+watch(confirmingPassword, (value) => {
+    if (!value) {
+        emit('close')
+    }
+})
+
+const closeModal = () => {
+    confirmingPassword.value = false
+}
+
+const confirmPassword = () => {
+    form.post(route('password.confirm'), {
+        preserveScroll: true,
+        onFinish: () => {
+            if (!form.hasErrors()) {
+                closeModal()
+            }
+        },
+    })
+}
+</script>

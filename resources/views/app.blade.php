@@ -15,7 +15,12 @@
         @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
         @inertiaHead
     </head>
+    
     <body class="font-sans antialiased">
         @inertia
     </body>
+<script>
+    window.translations = @json(__('translations'));
+</script>
+
 </html>

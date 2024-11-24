@@ -77,7 +77,7 @@ const confirmTokenDeletion = (token) => {
     deleteDialog.value = true;
 };
 
-const deleteApiTokenForm = useForm({}); // Add this with your other form declarations
+const deleteApiTokenForm = useForm({});
 
 // Then update the deleteToken method
 const deleteToken = () => {

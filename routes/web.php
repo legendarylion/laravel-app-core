@@ -12,6 +12,11 @@ Route::get('auth/{provider}/redirect', [SocialiteController::class, 'redirect'])
 Route::get('auth/{provider}/callback', [SocialiteController::class, 'callback'])
     ->name('socialite.callback');
 
+Route::post('auth/link-account', [SocialiteController::class, 'linkAccount'])
+    ->name('socialite.link-account');
+
+
+
 Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),

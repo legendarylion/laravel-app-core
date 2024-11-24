@@ -1,148 +1,93 @@
-<!-- resources/js/Pages/Profile/Partials/TwoFactorAuthenticationForm.vue -->
 <script setup>
-import { ref, computed } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import { usePage, useForm } from '@inertiajs/vue3';
 
-const props = defineProps({
-    requiresConfirmation: Boolean,
-    qrCode: String,
-    recoveryCodes: Array,
+const user = usePage().props.auth.user;
+
+// Manage form state
+const form = useForm({
+	processing: false,
 });
 
-const enabling = ref(false);
-const confirming = ref(false);
-const disabling = ref(false);
-const recoveringCodes = ref(false);
+// State variables for 2FA
+const showingQrCode = ref(false);
 const showingRecoveryCodes = ref(false);
-const showingConfirmation = ref(false);
-const confirmationCode = ref('');
 
-const form = useForm({});
-const confirmationForm = useForm({
-    code: '',
-});
+function enableTwoFactorAuthentication() {
+	form.post(route('two-factor.enable'), {
+		preserveScroll: true,
+		onSuccess: () => {
+			showingQrCode.value = true;
+			showingRecoveryCodes.value = true;
+		},
+	});
+}
 
-const confirmTwoFactorAuthentication = () => {
-    confirmationForm.post(route('two-factor.confirm'), {
-        errorBag: 'confirmTwoFactorAuthentication',
-        preserveScroll: true,
-        onSuccess: () => {
-            showingRecoveryCodes.value = true;
-            confirming.value = false;
-        },
-    });
-};
+function disableTwoFactorAuthentication() {
+	form.delete(route('two-factor.disable'), {
+		preserveScroll: true,
+		onSuccess: () => {
+			showingQrCode.value = false;
+			showingRecoveryCodes.value = false;
+		},
+	});
+}
 
-const enableTwoFactorAuthentication = () => {
-    enabling.value = true;
-
-    form.post(route('two-factor.enable'), {
-        preserveScroll: true,
-        onSuccess: () => {
-            confirming.value = true;
-            enabling.value = false;
-        },
-    });
-};
-
-const regenerateRecoveryCodes = () => {
-    recoveringCodes.value = true;
-
-    form.post(route('two-factor.recovery-codes'), {
-        preserveScroll: true,
-        onSuccess: () => {
-            showingRecoveryCodes.value = true;
-            recoveringCodes.value = false;
-        },
-    });
-};
-
-const disableTwoFactorAuthentication = () => {
-    disabling.value = true;
-
-    form.delete(route('two-factor.disable'), {
-        preserveScroll: true,
-        onSuccess: () => {
-            disabling.value = false;
-            confirming.value = false;
-        },
-    });
-};
-
-const twoFactorEnabled = computed(() => {
-    return !enabling.value && props.requiresConfirmation;
-});
+function regenerateRecoveryCodes() {
+	form.post(route('two-factor.recovery-codes'), {
+		preserveScroll: true,
+		onSuccess: () => {
+			showingRecoveryCodes.value = true;
+		},
+	});
+}
 </script>
 
 <template>
-    <v-card>
-        <v-card-title class="text-h6">
-            Two Factor Authentication
-        </v-card-title>
+	<v-card-text>
+		<h2 class="text-h6 font-weight-bold mb-4">Two-Factor Authentication</h2>
+		<p class="mb-4">
+			Add an extra layer of security to your account by enabling two-factor authentication.
+		</p>
 
-        <v-card-text>
-            <div class="text-subtitle-1 mb-4">
-                Add additional security to your account using two factor authentication.
-            </div>
+		<!-- Enable/Disable Button -->
+		<div v-if="!user.two_factor_enabled">
+			<v-btn :loading="form.processing" color="primary" @click="enableTwoFactorAuthentication">
+				Enable Two-Factor Authentication
+			</v-btn>
+		</div>
+		<div v-else>
+			<v-btn :loading="form.processing" color="red" outlined @click="disableTwoFactorAuthentication">
+				Disable Two-Factor Authentication
+			</v-btn>
+		</div>
 
-            <template v-if="twoFactorEnabled">
-                <div v-if="showingRecoveryCodes">
-                    <div class="text-subtitle-1 mb-4">
-                        Store these recovery codes in a secure password manager. They can be used to recover access to
-                        your account if your two factor authentication device is lost.
-                    </div>
+		<!-- QR Code Section -->
+		<div v-if="user.two_factor_enabled && showingQrCode" class="mt-6">
+			<h3 class="text-h6 mb-2">QR Code</h3>
+			<p>Scan the following QR code using your authentication app.</p>
+			<div class="text-center">
+				<img :src="user.two_factor_qr_code_url" alt="Two-Factor QR Code" class="mt-4" />
+			</div>
+		</div>
 
-                    <v-card variant="outlined" class="mb-4">
-                        <v-card-text class="font-monospace">
-                            <div v-for="code in recoveryCodes" :key="code" class="mb-1">
-                                {{ code }}
-                            </div>
-                        </v-card-text>
-                    </v-card>
-                </div>
-
-                <v-card-actions>
-                    <v-btn color="warning" :loading="recoveringCodes" @click="regenerateRecoveryCodes" class="mr-2">
-                        Regenerate Recovery Codes
-                    </v-btn>
-
-                    <v-btn color="error" :loading="disabling" @click="disableTwoFactorAuthentication">
-                        Disable 2FA
-                    </v-btn>
-                </v-card-actions>
-            </template>
-
-            <template v-else>
-                <div v-if="confirming">
-                    <div class="mb-4">
-                        <div class="text-subtitle-1 mb-2">
-                            To finish enabling two factor authentication, scan the following QR code using your phone's
-                            authenticator application or enter the setup key and provide the generated OTP code.
-                        </div>
-
-                        <div v-html="qrCode" class="mb-4"></div>
-
-                        <v-form @submit.prevent="confirmTwoFactorAuthentication">
-                            <v-text-field v-model="confirmationForm.code" label="Code"
-                                :error-messages="confirmationForm.errors.code" variant="outlined"
-                                prepend-inner-icon="mdi-lock-check" class="mb-4"></v-text-field>
-
-                            <v-card-actions>
-                                <v-spacer></v-spacer>
-                                <v-btn type="submit" color="primary" :loading="confirmationForm.processing">
-                                    Confirm
-                                </v-btn>
-                            </v-card-actions>
-                        </v-form>
-                    </div>
-                </div>
-
-                <v-card-actions v-else>
-                    <v-btn color="primary" :loading="enabling" @click="enableTwoFactorAuthentication">
-                        Enable 2FA
-                    </v-btn>
-                </v-card-actions>
-            </template>
-        </v-card-text>
-    </v-card>
+		<!-- Recovery Codes Section -->
+		<div v-if="user.two_factor_enabled && showingRecoveryCodes" class="mt-6">
+			<h3 class="text-h6 mb-2">Recovery Codes</h3>
+			<p>
+				Store these recovery codes in a secure location. They can be used to recover access to your account if
+				you lose your authentication device.
+			</p>
+			<v-card outlined dark class="pa-4 mt-4">
+				<v-list dense>
+					<v-list-item v-for="code in user.two_factor_recovery_codes" :key="code">
+						<v-list-item-content>{{ code }}</v-list-item-content>
+					</v-list-item>
+				</v-list>
+			</v-card>
+			<v-btn :loading="form.processing" color="primary" class="mt-4" outlined @click="regenerateRecoveryCodes">
+				Regenerate Recovery Codes
+			</v-btn>
+		</div>
+	</v-card-text>
 </template>

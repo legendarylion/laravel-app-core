@@ -1,4 +1,3 @@
-<!-- resources/js/Pages/Auth/Login.vue -->
 <script setup>
 import { ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
@@ -25,6 +24,11 @@ const submit = () => {
             <v-container fluid class="fill-height">
                 <v-row justify="center" align="center">
                     <v-col cols="12" sm="8" md="4">
+                        <!-- Alert for errors -->
+                        <v-alert v-if="$page.props.flash.error" type="error" class="mb-4" closable>
+                            {{ $page.props.flash.error }}
+                        </v-alert>
+
                         <v-card class="elevation-12">
                             <v-toolbar color="primary" flat>
                                 <v-toolbar-title>Login</v-toolbar-title>
@@ -34,8 +38,7 @@ const submit = () => {
                                 <v-form @submit.prevent="submit">
                                     <v-text-field v-model="form.email" :error-messages="form.errors.email" label="Email"
                                         name="email" prepend-icon="mdi-email" type="email" required variant="outlined"
-                                        autocomplete="username" class="mt-4"
-                                        :append-inner-icon="null" />
+                                        autocomplete="username" class="mt-4" />
 
                                     <v-text-field v-model="form.password" :error-messages="form.errors.password"
                                         :type="showPassword ? 'text' : 'password'" label="Password" name="password"
@@ -88,10 +91,3 @@ const submit = () => {
         </v-main>
     </v-app>
 </template>
-
-<style scoped>
-.v-card-text :deep(.v-field__append-inner) {
-    padding-inline-start: 12px;
-}
-</style>
-
